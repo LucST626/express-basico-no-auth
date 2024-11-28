@@ -1,62 +1,53 @@
-const bcrypt = require('bcrypt');
-const saltRounds = 10;
-const Database = require('better-sqlite3');
-const fs = require('fs');
-/*
-const db = new Database(':memory:');
-db.exec("CREATE TABLE users (user TEXT PRIMARY KEY, password TEXT)");
-db.exec("INSERT INTO users (user, password) VALUES ('admin', '81dc9bdb52d04dc20036dbd8313ed055')");
-*/
-let db_aux = null;
-if(!fs.existsSync('database.db')){
-    db_aux = new Database('database.db');//cambia por database.db para guardar en un archivo
-    db_aux.exec("CREATE TABLE users (user TEXT PRIMARY KEY, password TEXT)");
-} else {
-    db_aux = new Database('database.db');
-}
-const db = db_aux;
+const users = {};
 
-function getUser(user) {
-    const getUserStatement = db.prepare("SELECT * FROM users WHERE user = ?");
-    return getUserStatement.get(user);
+// Crear un nuevo usuario
+function createUser(username, password) {
+    if (users[username]) {
+        throw new Error('El usuario ya existe');
+    }
+    users[username] = { password };
 }
 
-function getAllUsers(){
-    const getAllUsersStatement = db.prepare("SELECT * FROM users");
-    return getAllUsersStatement.all();
+// Obtener un usuario por nombre
+function getUser(username) {
+    return users[username];
 }
 
-function deleteUser(user){
-    const deleteUserStatement = db.prepare("DELETE FROM users WHERE user = ?");
-    deleteUserStatement.run(user);
+// Obtener todos los usuarios
+function getAllUsers() {
+    return Object.keys(users);
 }
 
-
-function createUser(user, password) {
-    const insertUserStatement = db.prepare("INSERT INTO users (user, password) VALUES (?, ?)");
-    const hash = bcrypt.hashSync(password, saltRounds);
-    insertUserStatement.run(user, hash);
+// Actualizar un usuario existente
+function updateUser(oldUsername, newUsername, newPassword) {
+    if (!users[oldUsername]) {
+        throw new Error('Usuario no encontrado');
+    }
+    const userData = users[oldUsername];
+    delete users[oldUsername];
+    users[newUsername] = { ...userData, password: newPassword };
 }
 
-function updateUser(user, password){
-    const updateUserStatement = db.prepare("UPDATE users SET password = ? WHERE user = ?");
-    const hash = bcrypt.hashSync(password, saltRounds);
-    updateUserStatement.run(hash, user);
+// Eliminar un usuario
+function deleteUser(username) {
+    if (!users[username]) {
+        throw new Error('Usuario no encontrado');
+    }
+    delete users[username];
 }
 
-function validateUser(user, password) {
-    const userObj = getUser(user);
-    //password is plaintext
-    return bcrypt.compareSync(password, userObj.password);
+// Validar un usuario y contraseña
+function validateUser(username, password) {
+    const user = users[username];
+    return user && user.password === password;
 }
 
-
-
+// Exportar funciones
 module.exports = {
     createUser,
     getUser,
     getAllUsers,
     updateUser,
     deleteUser,
-    validateUser
+    validateUser,
 };
